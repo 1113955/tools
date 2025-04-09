@@ -44,8 +44,9 @@ final hrPattern = RegExp(r'^ {0,3}([-*_])[ \t]*\1[ \t]*\1(?:\1|[ \t])*$');
 ///
 /// A line starting with a number like `123.`. May have up to three leading
 /// spaces before the marker and any number of spaces or tabs after.
+/// 뒤에 글자가 없는 경우에는 파싱하지 않아야 한다. setext 패턴과 겹쳐 animation이 동작하지 않음.
 final listPattern =
-    RegExp(r'^[ ]{0,3}(?:(\d{1,9})[\.)]|[*+-])(?:[ \t]+(.*))?$');
+    RegExp(r'^[ ]{0,3}(?:(\d{1,9})[\.)]|[*+-])[ \t]+([^ \t].*)$');
 
 /// A line of hyphens separated by at least one pipe.
 final tablePattern = RegExp(

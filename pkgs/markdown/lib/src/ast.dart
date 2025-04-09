@@ -59,7 +59,11 @@ class Element implements Node {
     final children = this.children;
     return children == null
         ? ''
-        : children.map((child) => child.textContent).join();
+        : children
+            .where((child) => // p나 text 노드만 선택
+                (child is Element && child.tag == 'p') || child is Text)
+            .map((child) => child.textContent)
+            .join();
   }
 }
 

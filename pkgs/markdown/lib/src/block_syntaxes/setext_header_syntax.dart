@@ -21,6 +21,12 @@ class SetextHeaderSyntax extends BlockSyntax {
     if (parser.setextHeadingDisabled || lastSyntax is! ParagraphSyntax) {
       return false;
     }
+
+    // 다음 줄이 있는지 확인(다음줄이 없다면 setext 패턴을 찾으면 안됨, 애니메이션이 깜박임)
+    if (parser.next == null) {
+      return false;
+    }
+
     return pattern.hasMatch(parser.current.content);
   }
 
