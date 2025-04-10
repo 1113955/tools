@@ -94,12 +94,12 @@ class Document {
       }
 
       // if inline syntax is started, but not ended, remove it.
-      final start = isInlineSyntaxStarted(lastLine.content);
-      if (start > 0 && !isInlineSyntaxEnded(lastLine.content)) {
-        final content = lastLine.content.substring(0, start - 1);
-        lines.removeLast();
+      final startMatch = isInlineSyntaxStarted(lastLine.content);
+      if (startMatch != null && !isInlineSyntaxEnded(lastLine.content)) {
+        final content = lastLine.content.trimRight() +
+            lastLine.content.substring(startMatch.start, startMatch.end);
         if (content.isNotEmpty) {
-          // If the last line is not empty, add it back.
+          lines.removeLast();
           lines.add(Line(content));
         }
       }
@@ -193,7 +193,7 @@ class Document {
     }
   }
 
-  int isInlineSyntaxStarted(String content) {
+  RegExpMatch? isInlineSyntaxStarted(String content) {
     /// 모든 인라인 문법 시작 패턴을 결합한 정규표현식
     final anyInlineMarkdownStart = RegExp(r'(\*\*|__)(?!\s)|' // bold
         r'(?<!\*|\w)(\*|_)(?!\*|_|\s)|' // italic
@@ -205,10 +205,9 @@ class Document {
         );
     final allMatches = anyInlineMarkdownStart.allMatches(content);
     if (allMatches.isEmpty) {
-      return 0;
+      return null;
     }
-    final match = allMatches.last;
-    return match.end;
+    return allMatches.last;
   }
 
   bool isInlineSyntaxEnded(String content) {
