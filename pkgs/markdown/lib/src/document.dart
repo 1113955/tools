@@ -84,6 +84,23 @@ class Document {
 
   /// Parses the given [lines] of [Line] to a series of AST nodes.
   List<Node> parseLineList(List<Line> lines) {
+    if (lines.isNotEmpty) {
+      final lastLine = lines.last;
+      final emptyListPattern =
+          RegExp(r'^[ ]{0,3}(?:(\d{1,9})[\.)]|[*+-])[ \t]*$');
+      if (emptyListPattern.hasMatch(lastLine.content)) {
+        // If the last line is a blank line, remove it.
+        lines.removeLast();
+      }
+
+      // if inline syntax is started, but not ended, remove it.
+
+      if (isInlineSyntaxStarted(lastLine.content) &&
+          !isInlineSyntaxEnded(lastLine.content)) {
+        lines.removeLast();
+      }
+    }
+
     final nodes = BlockParser(lines, this).parseLines();
     _parseInlineContent(nodes);
     // Do filter after parsing inline as we need ref count.
@@ -170,6 +187,143 @@ class Document {
         children.last = Element('p', [last, ...refs]);
       }
     }
+  }
+
+  bool isInlineSyntaxStarted(String content) {
+    /// 모든 인라인 문법 시작 패턴을 결합한 정규표현식
+    final anyInlineMarkdownStart = RegExp(r'(\*\*|__)(?!\s)|' // bold
+        r'(?<!\*|\w)(\*|_)(?!\*|_|\s)|' // italic
+        r'(\*\*\*|___)(?!\s)|' // bold italic
+        r'~~(?!\s)|' // strikethrough
+        '`(?!`)|' // inline code
+        r'\[|' // link
+        r'!\[' // image
+        );
+    return anyInlineMarkdownStart.hasMatch(content);
+  }
+
+  bool isInlineSyntaxEnded(String content) {
+    // 인라인 문법의 닫는 패턴을 확인하기 위한 스택 기반 처리
+    final stack = <String>[];
+    var isEscaped = false;
+
+    for (var i = 0; i < content.length; i++) {
+      final char = content[i];
+
+      // 이스케이프 문자 처리
+      if (char == r'\' && !isEscaped) {
+        isEscaped = true;
+        continue;
+      }
+
+      if (isEscaped) {
+        isEscaped = false;
+        continue;
+      }
+
+      // 코드 블록 처리
+      if (i + 2 < content.length && content.substring(i, i + 3) == '```') {
+        if (stack.isNotEmpty && stack.last == '```') {
+          stack.removeLast();
+        } else {
+          stack.add('```');
+        }
+        i += 2;
+        continue;
+      }
+
+      // 볼드 이탤릭 처리
+      if (i + 2 < content.length &&
+          (content.substring(i, i + 3) == '***' ||
+              content.substring(i, i + 3) == '___')) {
+        final pattern = content.substring(i, i + 3);
+        if (stack.isNotEmpty && stack.last == pattern) {
+          stack.removeLast();
+        } else {
+          stack.add(pattern);
+        }
+        i += 2;
+        continue;
+      }
+
+      // 볼드 처리
+      if (i + 1 < content.length &&
+          (content.substring(i, i + 2) == '**' ||
+              content.substring(i, i + 2) == '__')) {
+        final pattern = content.substring(i, i + 2);
+        if (stack.isNotEmpty && stack.last == pattern) {
+          stack.removeLast();
+        } else {
+          stack.add(pattern);
+        }
+        i += 1;
+        continue;
+      }
+
+      // 취소선 처리
+      if (i + 1 < content.length && content.substring(i, i + 2) == '~~') {
+        if (stack.isNotEmpty && stack.last == '~~') {
+          stack.removeLast();
+        } else {
+          stack.add('~~');
+        }
+        i += 1;
+        continue;
+      }
+
+      // 인라인 코드 처리
+      if (char == '`' && (i == 0 || content[i - 1] != '`')) {
+        if (stack.isNotEmpty && stack.last == '`') {
+          stack.removeLast();
+        } else {
+          stack.add('`');
+        }
+        continue;
+      }
+
+      // 이탤릭 처리
+      if ((char == '*' || char == '_') &&
+          (i == 0 || (content[i - 1] != char && content[i - 1] != r'\')) &&
+          (i + 1 >= content.length || content[i + 1] != char)) {
+        if (stack.isNotEmpty && stack.last == char) {
+          stack.removeLast();
+        } else {
+          stack.add(char);
+        }
+        continue;
+      }
+
+      // 링크와 이미지 처리
+      if (char == '[' && (i == 0 || content[i - 1] != '!')) {
+        stack.add('[');
+        continue;
+      }
+
+      if (char == '!' && i + 1 < content.length && content[i + 1] == '[') {
+        stack.add('![');
+        i += 1;
+        continue;
+      }
+
+      if (char == ']' && i + 1 < content.length && content[i + 1] == '(') {
+        if (stack.isNotEmpty && (stack.last == '[' || stack.last == '![')) {
+          final openTag = stack.removeLast();
+          stack.add('$openTag](');
+        }
+        i += 1;
+        continue;
+      }
+
+      if (char == ')') {
+        if (stack.isNotEmpty && (stack.last.endsWith(']('))) {
+          stack.removeLast();
+        }
+        continue;
+      }
+    }
+
+    // 스택이 비어있으면 모든 인라인 문법이 올바르게 종료된 것
+    return stack.isEmpty;
   }
 }
 

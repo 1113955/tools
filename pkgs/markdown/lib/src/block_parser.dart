@@ -148,6 +148,8 @@ class BlockParser {
   BlockSyntax? get previousSyntax => _previousSyntax;
   BlockSyntax? _previousSyntax;
 
+  bool get isLastLine => _pos == lines.length - 1;
+
   List<Node> parseLines({
     BlockSyntax? parentSyntax,
     bool disabledSetextHeading = false,
