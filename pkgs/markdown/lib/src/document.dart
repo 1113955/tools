@@ -203,7 +203,11 @@ class Document {
         r'\[|' // link
         r'!\[' // image
         );
-    final match = anyInlineMarkdownStart.allMatches(content).last;
+    final allMatches = anyInlineMarkdownStart.allMatches(content);
+    if (allMatches.isEmpty) {
+      return 0;
+    }
+    final match = allMatches.last;
     return match.end;
   }
 
