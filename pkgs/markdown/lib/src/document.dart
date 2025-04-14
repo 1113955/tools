@@ -92,21 +92,11 @@ class Document {
         // If the last line is a blank line, remove it.
         lines.removeLast();
       }
-
-      // if inline syntax is started, but not ended, remove it.
-      final startMatch = isInlineSyntaxStarted(lastLine.content);
-      if (startMatch != null && !isInlineSyntaxEnded(lastLine.content)) {
-        final content = lastLine.content.trimRight() +
-            lastLine.content.substring(startMatch.start, startMatch.end);
-        if (content.isNotEmpty) {
-          lines.removeLast();
-          lines.add(Line(content));
-        }
-      }
     }
 
-    final nodes = BlockParser(lines, this).parseLines();
-    _parseInlineContent(nodes);
+    final blockParser = BlockParser(lines, this);
+    final nodes = blockParser.parseLines();
+    _parseInlineContent(nodes, false);
     // Do filter after parsing inline as we need ref count.
     return _filterFootnotes(nodes);
   }
@@ -114,16 +104,40 @@ class Document {
   /// Parses the given inline Markdown [text] to a series of AST nodes.
   List<Node> parseInline(String text) => InlineParser(text, this).parse();
 
-  void _parseInlineContent(List<Node> nodes) {
+  void _parseInlineContent(List<Node> nodes, bool isInCodeBlock) {
     for (var i = 0; i < nodes.length; i++) {
       final node = nodes[i];
-      if (node is UnparsedContent) {
+      if (node is UnparsedContent && !isInCodeBlock) {
         final inlineNodes = parseInline(node.textContent);
         nodes.removeAt(i);
         nodes.insertAll(i, inlineNodes);
         i += inlineNodes.length - 1;
       } else if (node is Element && node.children != null) {
-        _parseInlineContent(node.children!);
+        _parseInlineContent(
+            node.children!, isInCodeBlock || node.tag == 'code');
+      }
+    }
+
+    // 마지막 줄이고, 인라인 문법이 마무리되지 않았다면 태그를 닫음
+    if (nodes.isNotEmpty && !isInCodeBlock) {
+      final lastNode = nodes.last;
+      if (lastNode is UnparsedContent || lastNode is Text) {
+        final lastLineContent = lastNode.textContent;
+        if (isInlineSyntaxStarted(lastLineContent) != null &&
+            !isInlineSyntaxEnded(lastLineContent)) {
+          // 시작은 되었지만 끝나지 않은 inline syntax가 있다면,
+          // 예를 들어 bold, italic 등.
+          // 이 경우, 해당 tag를 닫아준다.
+          final startMatch = isInlineSyntaxStarted(lastLineContent)!;
+          final content = lastLineContent.trimRight() +
+              lastLineContent.substring(startMatch.start, startMatch.end);
+
+          final inlineNodes = parseInline(content);
+          if (inlineNodes.isNotEmpty) {
+            nodes.removeLast();
+            nodes.addAll(inlineNodes);
+          }
+        }
       }
     }
   }
