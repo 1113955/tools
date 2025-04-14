@@ -209,9 +209,9 @@ class Document {
 
   RegExpMatch? isInlineSyntaxStarted(String content) {
     /// 모든 인라인 문법 시작 패턴을 결합한 정규표현식
-    final anyInlineMarkdownStart = RegExp(r'(\*\*|__)(?!\s)|' // bold
+    final anyInlineMarkdownStart = RegExp(r'(\*\*\*|___)(?!\s)|' // bold italic
+        r'(\*\*|__)(?!\s)|' // bold
         r'(?<!\*|\w)(\*|_)(?!\*|_|\s)|' // italic
-        r'(\*\*\*|___)(?!\s)|' // bold italic
         r'~~(?!\s)|' // strikethrough
         '`(?!`)|' // inline code
         r'\[|' // link
